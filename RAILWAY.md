@@ -34,11 +34,14 @@ git push -u origin main
 
 | Variable           | Value                    | Обязательно |
 |--------------------|--------------------------|-------------|
-| `OPENAI_API_KEY`   | `sk-...` (ваш ключ OpenAI) | Да          |
+| **Один из ключей LLM** (достаточно одного): | | |
+| `OPENAI_API_KEY`   | ключ OpenAI (platform.openai.com) | если используете OpenAI |
+| `GEMINI_API_KEY`   | ключ Google Gemini (бесплатно: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)) | если не используете OpenAI |
+| `GROQ_API_KEY`     | ключ Groq (бесплатно: [console.groq.com/keys](https://console.groq.com/keys)) | если не используете OpenAI и Gemini |
 | `MODE`             | `webhook`                | Да (для работы по URL) |
 | `WEBHOOK_SECRET`   | любая длинная случайная строка | Рекомендуется |
 
-Пример: `WEBHOOK_SECRET=mySecret123Abc`.
+Приоритет: если заданы несколько ключей, используется OpenAI → Gemini → Groq. Для работы без OpenAI достаточно **GEMINI_API_KEY** или **GROQ_API_KEY**.
 
 Сохраните. Railway перезапустит сервис с новыми переменными.
 
@@ -66,7 +69,13 @@ curl -X POST https://ваш-домен.up.railway.app/task \
 # Ответ: {"ok":true,"taskId":"..."}
 ```
 
-Агент обработает задачу в фоне (в течение нескольких секунд). Логи можно смотреть во вкладке **Deployments** → выберите деплой → **View Logs**.
+**Очередь (сколько задач в работе и выполнено):**
+```bash
+curl -H "X-Webhook-Secret: mySecret123Abc" https://ваш-домен.up.railway.app/status
+# {"ok":true,"queue":{"pending":2,"done":10}}
+```
+
+Агент обработает задачу в фоне (в течение нескольких секунд). Результаты и логи — во вкладке **Deployments** → выберите деплой → **View Logs**.
 
 ## Лимиты Railway
 

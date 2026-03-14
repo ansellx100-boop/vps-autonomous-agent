@@ -77,3 +77,14 @@ export function removeTask(taskId) {
   const src = path.join(TASKS_DIR, PENDING, `${taskId}.json`);
   if (fs.existsSync(src)) fs.unlinkSync(src);
 }
+
+/**
+ * Статистика очереди (для GET /status).
+ */
+export function getQueueStats() {
+  const pendingDir = path.join(TASKS_DIR, PENDING);
+  const doneDir = path.join(TASKS_DIR, DONE);
+  const pending = fs.existsSync(pendingDir) ? fs.readdirSync(pendingDir).filter((f) => f.endsWith('.json')).length : 0;
+  const done = fs.existsSync(doneDir) ? fs.readdirSync(doneDir).filter((f) => f.endsWith('.json')).length : 0;
+  return { pending, done };
+}

@@ -104,6 +104,80 @@ docker run -d --env-file .env --restart unless-stopped --name vps-agent vps-agen
 
 ---
 
+## Как управлять агентом
+
+На Railway/VPS агент в режиме **webhook** управляется только через HTTP. Других панелей нет.
+
+### Отправить задачу
+
+**curl** (подставьте свой URL и, если задавали, `WEBHOOK_SECRET`):
+
+```bash
+curl -X POST https://ВАШ-ДОМЕН.up.railway.app/task \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ваш_секрет" \
+  -d '{"prompt": "Кратко объясни, что такое API"}'
+```
+
+Ответ: `{"ok":true,"taskId":"abc123"}` — задача в очереди, агент обработает её в фоне (обычно за несколько секунд).
+
+Тело запроса может быть:
+- `{"prompt": "текст запроса"}` — один вопрос к LLM;
+- любой свой JSON — он попадёт в `payload` задачи (в агенте можно обрабатывать по-разному).
+
+### Проверить, что агент жив
+
+```bash
+curl https://ВАШ-ДОМЕН.up.railway.app/health
+# {"ok":true,"service":"vps-autonomous-agent","mode":"webhook"}
+```
+
+### Посмотреть очередь
+
+Сколько задач в ожидании и сколько уже выполнено (если задан `WEBHOOK_SECRET`, добавьте заголовок):
+
+```bash
+curl -H "X-Webhook-Secret: ваш_секрет" https://ВАШ-ДОМЕН.up.railway.app/status
+# {"ok":true,"queue":{"pending":2,"done":10}}
+```
+
+### Где смотреть ответы агента
+
+Сейчас агент **не отдаёт ответ в HTTP** — он только ставит задачу в очередь и обрабатывает её. Результат пишется в логи сервиса:
+
+- **Railway:** Deployments → выберите деплой → **View Logs**. Ищите строки `[done] taskId` и текст ответа.
+- **VPS (systemd):** `journalctl -u vps-autonomous-agent -f`.
+
+Чтобы получать ответы в другое место (Telegram, email, свой webhook), нужно доработать `src/agent.js` — после `runTask()` вызывать ваш callback или API.
+
+### Управление из Cursor
+
+Да — можно управлять агентом прямо из Cursor.
+
+1. **Настройте локальный .env** в папке проекта:
+   - `AGENT_URL=https://ваш-домен.up.railway.app` (URL задеплоенного агента)
+   - `WEBHOOK_SECRET=ваш_секрет` — тот же, что в Railway Variables
+
+2. **Из терминала Cursor** отправьте задачу:
+   ```bash
+   npm run send-task "Кратко объясни, что такое REST API"
+   ```
+   В ответ придёт `Задача отправлена: <taskId>`.
+
+3. **Через чат Cursor** можно попросить: *«Отправь агенту задачу: …»* — ассистент выполнит `npm run send-task "…"` за вас.
+
+Результат выполнения задачи смотрите в логах Railway (Deployments → View Logs) или в `/status` (сколько задач в очереди и выполнено).
+
+### Управление через n8n
+
+В n8n создайте воркфлоу:
+1. Триггер: **Webhook**, **Schedule** или **Telegram**.
+2. Узел **HTTP Request**: Method POST, URL `https://ВАШ-ДОМЕН.up.railway.app/task`, Body `{"prompt": "{{ $json.message }}"}` (или свой JSON), Headers — `X-Webhook-Secret: ваш_секрет`.
+
+Так вы сможете запускать агента по расписанию, из Telegram или из других воркфлоу.
+
+---
+
 ## Как агент получает задачи
 
 - **Режим очереди (по умолчанию):** раз в N минут опрашивает источник задач (файл, Redis, API).
@@ -111,7 +185,7 @@ docker run -d --env-file .env --restart unless-stopped --name vps-agent vps-agen
 - **Telegram:** опционально бот принимает сообщения и ставит их в очередь (см. `src/telegram.js`).
 - **Cron:** через systemd timer или crontab можно запускать агента по расписанию для пакетной обработки.
 
-Подробнее — в разделах ниже и в коде в `src/`.
+Подробнее — в разделах выше и в коде в `src/`.
 
 ---
 

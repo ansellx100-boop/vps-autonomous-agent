@@ -4,7 +4,7 @@
 
 import 'dotenv/config';
 import http from 'http';
-import { addTask, getNextTask, markDone, removeTask } from './tasks.js';
+import { addTask, getNextTask, markDone, removeTask, getQueueStats } from './tasks.js';
 import { runTask } from './agent.js';
 
 function readBody(req) {
@@ -46,11 +46,29 @@ function startWebhookServer() {
   const PORT = parseInt(process.env.PORT, 10) || 3030;
   const SECRET = process.env.WEBHOOK_SECRET || '';
 
+  function requireAuth(req, res) {
+    if (!SECRET) return true;
+    const auth = req.headers['x-webhook-secret'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+    if (auth !== SECRET) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return false;
+    }
+    return true;
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = req.url?.split('?')[0];
     if (req.method === 'GET' && (url === '/' || url === '/health')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, service: 'vps-autonomous-agent', mode: 'webhook' }));
+      return;
+    }
+    if (req.method === 'GET' && url === '/status') {
+      if (!requireAuth(req, res)) return;
+      const stats = getQueueStats();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, queue: stats }));
       return;
     }
     if (req.method !== 'POST' || url !== '/task') {
@@ -59,14 +77,7 @@ function startWebhookServer() {
       return;
     }
 
-    if (SECRET) {
-      const auth = req.headers['x-webhook-secret'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
-      if (auth !== SECRET) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Unauthorized' }));
-        return;
-      }
-    }
+    if (!requireAuth(req, res)) return;
 
     const body = await readBody(req);
     let payload;
