@@ -67,6 +67,7 @@ export VPS_HOST=root@IP_ВАШЕГО_VPS   # или ubuntu@IP для Oracle/др
 3. В **Variables** задать: `OPENAI_API_KEY`, `MODE=webhook`, `WEBHOOK_SECRET` (по желанию). `PORT` задаёт Railway сам.
 4. В **Settings** → **Networking** → **Generate Domain** — получить URL.
 5. Отправлять задачи на `POST https://ваш-домен.up.railway.app/task` (заголовок `X-Webhook-Secret` при заданном `WEBHOOK_SECRET`).
+6. Чтобы БД (SQLite) не пропадала при деплое: в Railway добавьте **Volume** с Mount Path `/app/data` (подробнее в [RAILWAY.md](RAILWAY.md#4-volume-для-сохранения-бд-sqlite)).
 
 ---
 
@@ -123,7 +124,10 @@ curl -X POST https://ВАШ-ДОМЕН.up.railway.app/task \
 
 Тело запроса может быть:
 - `{"prompt": "текст запроса"}` — один вопрос к LLM;
-- любой свой JSON — он попадёт в `payload` задачи (в агенте можно обрабатывать по-разному).
+- `{"type": "collect"}` — **сбор из интернета** по теме производственной безопасности в горнодобыче (результаты в SQLite `data/agent.db`); при включённом cron (`CRON_ENABLED=1`) сбор запускается ежедневно по расписанию `CRON_COLLECT_SCHEDULE`;
+- `{"type": "report"}` или `{"type": "report", "reportDays": 1}` — **сформировать PDF-отчёт** за последний 1 день и при наличии `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` отправить его в Telegram; по запросу в боте (**/report** или «отчёт») отчёт уходит в тот чат, откуда запросили;
+- текст с «искать в интернете» + «производственная безопасность»/«горнодобыва» тоже запускает сбор;
+- любой другой JSON попадёт в `payload` задачи.
 
 ### Проверить, что агент жив
 
@@ -148,7 +152,16 @@ curl -H "X-Webhook-Secret: ваш_секрет" https://ВАШ-ДОМЕН.up.rai
 - **Railway:** Deployments → выберите деплой → **View Logs**. Ищите строки `[done] taskId` и текст ответа.
 - **VPS (systemd):** `journalctl -u vps-autonomous-agent -f`.
 
-Чтобы получать ответы в другое место (Telegram, email, свой webhook), нужно доработать `src/agent.js` — после `runTask()` вызывать ваш callback или API.
+PDF-отчёты по задаче `type: "report"` при настроенных `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` автоматически отправляются в Telegram.
+
+### Telegram: отчёты и бот /report
+
+В **Variables** на Railway задайте:
+- **TELEGRAM_BOT_TOKEN** — токен от [@BotFather](https://t.me/BotFather).
+- **TELEGRAM_REPORT_CHAT_IDS** — ID чата (или несколько через запятую), куда слать ежедневный отчёт.
+- **TELEGRAM_ALLOWED_CHAT_IDS** — кто может писать боту (если не задано, используются TELEGRAM_REPORT_CHAT_IDS).
+
+После деплоя бот реагирует на **/report** и текст «отчёт»: ставит в очередь задачу отчёта за 1 день и отправляет готовый PDF в тот чат, откуда пришёл запрос (**по запросу**). Ежедневно **раз в день в 9:00** (по умолчанию 09:00 UTC; для 9:00 по Москве задайте `CRON_REPORT_SCHEDULE=0 6 * * *`) формируется отчёт и отправляется в чаты из TELEGRAM_REPORT_CHAT_IDS.
 
 ### Управление из Cursor
 

@@ -2,4 +2,5 @@
 node_modules/
 tasks/pending/
 tasks/done/
+data/
 *.log

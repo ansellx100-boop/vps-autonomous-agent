@@ -34,25 +34,40 @@ git push -u origin main
 
 | Variable           | Value                    | Обязательно |
 |--------------------|--------------------------|-------------|
-| **Один из ключей LLM** (достаточно одного): | | |
-| `OPENAI_API_KEY`   | ключ OpenAI (platform.openai.com) | если используете OpenAI |
-| `GEMINI_API_KEY`   | ключ Google Gemini (бесплатно: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)) | если не используете OpenAI |
-| `GROQ_API_KEY`     | ключ Groq (бесплатно: [console.groq.com/keys](https://console.groq.com/keys)) | если не используете OpenAI и Gemini |
+| `OPENAI_API_KEY`   | `sk-...` (ваш ключ OpenAI) | Да          |
 | `MODE`             | `webhook`                | Да (для работы по URL) |
 | `WEBHOOK_SECRET`   | любая длинная случайная строка | Рекомендуется |
+| `TELEGRAM_BOT_TOKEN` | токен от @BotFather     | Для отправки отчётов в Telegram |
+| `TELEGRAM_REPORT_CHAT_IDS` | ID чата (или несколько через запятую) | Куда слать ежедневный PDF-отчёт |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | ID чатов через запятую | Кто может писать боту /report (если не задано — берётся из REPORT_CHAT_IDS) |
 
-Приоритет: если заданы несколько ключей, используется OpenAI → Gemini → Groq. Для работы без OpenAI достаточно **GEMINI_API_KEY** или **GROQ_API_KEY**.
+Пример: `WEBHOOK_SECRET=mySecret123Abc`.  
+
+**Подробная настройка Telegram с нуля:** [docs/telegram-bot-setup.md](docs/telegram-bot-setup.md) — создание бота в @BotFather, получение Chat ID, переменные в Railway, проверка.
 
 Сохраните. Railway перезапустит сервис с новыми переменными.
 
-## 4. Публичный URL
+## 4. Volume для сохранения БД (SQLite)
+
+Чтобы база `data/agent.db` не пропадала при перезапуске и новом деплое:
+
+1. Откройте ваш **сервис** в Railway.
+2. Вкладка **Settings** (или **Resources**) → раздел **Volumes**.
+3. Нажмите **Add Volume** (или **Create Volume**).
+4. Укажите **Mount Path**: `/app/data`  
+   (приложение пишет БД в эту директорию; Railway подставит её в `RAILWAY_VOLUME_MOUNT_PATH`).
+5. Сохраните. После следующего деплоя SQLite будет использовать смонтированный диск, данные сохранятся между деплоями.
+
+Переменную `RAILWAY_VOLUME_MOUNT_PATH` задавать вручную не нужно — Railway выставляет её сам при подключённом volume.
+
+## 5. Публичный URL
 
 1. Вкладка **Settings** → **Networking** → **Generate Domain**.
 2. Скопируйте URL вида `https://vps-autonomous-agent-production-xxxx.up.railway.app`.
 
 Endpoint для задач: **`https://ваш-домен.up.railway.app/task`**
 
-## 5. Проверка
+## 6. Проверка
 
 **Проверка здоровья сервиса:**
 ```bash
