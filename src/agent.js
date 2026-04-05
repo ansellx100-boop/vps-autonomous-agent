@@ -7,6 +7,7 @@ import { searchMiningSafety } from './search.js';
 import { insertArticles, getStats } from './db.js';
 import { generateReportPdf } from './report.js';
 import { sendReportToTelegram } from './telegram.js';
+import { runGarminAnalysis } from './garmin-service.js';
 
 let openai = null;
 
@@ -41,6 +42,10 @@ async function runCollect() {
   };
 }
 
+async function runGarminAnalyze(payload = {}) {
+  return runGarminAnalysis(payload);
+}
+
 /**
  * Выполнить одну задачу через LLM или поиск (type: collect).
  * @param {object} task - { id, payload: { prompt?, type?, ... } }
@@ -57,6 +62,10 @@ export async function runTask(task) {
   if (type === 'collect') {
     const result = await runCollect();
     return result;
+  }
+
+  if (payload.type === 'garmin_analyze' || payload.type === 'garmin') {
+    return runGarminAnalyze(payload);
   }
 
   const reportDays = payload.reportDays ?? (payload.days ?? 1);

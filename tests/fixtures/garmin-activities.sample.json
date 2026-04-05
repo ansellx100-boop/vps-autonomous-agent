@@ -1,0 +1,72 @@
+[
+  {
+    "activityId": 1001,
+    "activityType": { "typeKey": "street_running" },
+    "startTimeLocal": "2026-04-04T07:30:00",
+    "distance": 8000,
+    "duration": 2880,
+    "calories": 560,
+    "averageHR": 152,
+    "maxHR": 172,
+    "avgPower": 235,
+    "maxPower": 401
+  },
+  {
+    "activityId": 1002,
+    "activityType": { "typeKey": "cycling" },
+    "startTimeLocal": "2026-04-03T18:10:00",
+    "distance": 24000,
+    "duration": 4200,
+    "calories": 690,
+    "averageHR": 138,
+    "maxHR": 165,
+    "avgPower": 210,
+    "maxPower": 498
+  },
+  {
+    "activityId": 1003,
+    "activityType": { "typeKey": "trail_running" },
+    "startTimeLocal": "2026-04-02T07:05:00",
+    "distance": 12000,
+    "duration": 4740,
+    "calories": 840,
+    "averageHR": 158,
+    "maxHR": 180,
+    "avgPower": 248,
+    "maxPower": 420
+  },
+  {
+    "activityId": 1004,
+    "activityType": { "typeKey": "walking" },
+    "startTimeLocal": "2026-03-29T20:00:00",
+    "distance": 5000,
+    "duration": 3300,
+    "calories": 290,
+    "averageHR": 112,
+    "maxHR": 129,
+    "avgPower": 115,
+    "maxPower": 172
+  },
+  {
+    "activityId": 1005,
+    "activityType": { "typeKey": "street_running" },
+    "startTimeLocal": "2026-03-27T07:15:00",
+    "distance": 10000,
+    "duration": 3720,
+    "calories": 720,
+    "averageHR": 155,
+    "maxHR": 176,
+    "avgPower": 240,
+    "maxPower": 395
+  },
+  {
+    "activityId": 1006,
+    "activityType": { "typeKey": "fitness_equipment" },
+    "startTimeLocal": "2026-03-20T19:30:00",
+    "distance": 0,
+    "duration": 2700,
+    "calories": 410,
+    "averageHR": 121,
+    "maxHR": 144
+  }
+]
