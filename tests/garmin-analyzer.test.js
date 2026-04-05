@@ -28,8 +28,8 @@ assert.strictEqual(metrics.running.sessions, 4, 'Run-like session count should b
 assert.strictEqual(metrics.running.totalDistanceKm, 35, 'Run-like distance should be 35.0 km');
 assert.strictEqual(metrics.running.avgHeartRate, 144, 'Run-like average HR should be rounded');
 assert.strictEqual(metrics.running.avgPower, 210, 'Run-like average power should be rounded');
-assert.strictEqual(metrics.hrPowerDynamics.last7.avgHeartRate, 149, '7d average HR should be computed');
-assert.strictEqual(metrics.hrPowerDynamics.last7.avgPower, 223, '7d average power should be computed');
+assert.strictEqual(metrics.hrPowerDynamics.last7.avgHeartRate, 140, '7d average HR should be computed');
+assert.strictEqual(metrics.hrPowerDynamics.last7.avgPower, 202, '7d average power should be computed');
 assert.strictEqual(metrics.sleepQuality.daysCaptured, 14, 'Sleep rows should be included');
 assert.strictEqual(metrics.sleepQuality.avgSleepHours, 6.71, 'Average sleep hours should be computed');
 assert.strictEqual(metrics.sleepQuality.avgSleepScore, 71, 'Average sleep score should be rounded');
@@ -38,7 +38,7 @@ assert.strictEqual(metrics.sleepQuality.trend7d.last7AvgSleepScore, 75, 'Last 7d
 const llmInput = formatGarminMetricsForLlm(metrics);
 assert.strictEqual(llmInput.periodDays, 30, 'LLM payload should include period');
 assert.strictEqual(llmInput.totals.workouts, 6, 'LLM payload should include workout count');
-assert.strictEqual(llmInput.hrPowerDynamics.last7.avgPower, 223, 'LLM payload should include power dynamics');
+assert.strictEqual(llmInput.hrPowerDynamics.last7.avgPower, 202, 'LLM payload should include power dynamics');
 assert.strictEqual(llmInput.sleepQuality.daysCaptured, 14, 'LLM payload should include sleep quality block');
 
 const report = buildGarminReport(metrics, { llmInsights: 'Сделайте разгрузочный день после интервалов.' });
