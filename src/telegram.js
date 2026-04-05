@@ -40,7 +40,7 @@ export async function sendReportToTelegram(filePath, chatIds = null, caption = n
 
   if (!fs.existsSync(filePath)) return { sent: 0, errors: [`Файл не найден: ${filePath}`] };
 
-  const text = caption || `Отчёт: производственная безопасность в горнодобыче. ${new Date().toLocaleString('ru-RU')}`;
+  const text = caption || `Отчёт: инновации в горнодобывающей промышленности. ${new Date().toLocaleString('ru-RU')}`;
   let sent = 0;
   const errors = [];
 
@@ -78,7 +78,7 @@ export function startTelegramBot(addTaskFn) {
 
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    const help = `Отчёт по производственной безопасности в горнодобыче.\n\n` +
+    const help = `Отчёт по инновациям в горнодобывающей промышленности.\n\n` +
       `Команды:\n/report или «отчёт» — прислать PDF-отчёт за последний день.\n\n` +
       `Ваш Chat ID: \`${chatId}\`\nДобавьте его в Railway Variables: TELEGRAM_REPORT_CHAT_IDS и TELEGRAM_ALLOWED_CHAT_IDS.`;
     bot.sendMessage(chatId, help).catch(() => {});

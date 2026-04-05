@@ -1,16 +1,18 @@
 /**
- * Поиск в интернете по теме производственной безопасности в горнодобыче.
+ * Поиск в интернете по теме инноваций в горнодобывающей промышленности.
  * Использует DuckDuckGo через duck-duck-scrape (без API-ключа).
  */
 
 import { search, SafeSearchType } from 'duck-duck-scrape';
 
 const DEFAULT_QUERIES = [
-  'производственная безопасность горнодобывающая отрасль',
-  'охрана труда в горной промышленности',
-  'безопасность на горнодобывающих предприятиях',
-  'травматизм горнодобывающая промышленность',
-  'Ростехнадзор горные работы',
+  'инновации в горнодобывающей промышленности',
+  'новые технологии в горнодобыче',
+  'automation and AI in mining industry',
+  'autonomous haulage mining innovation',
+  'sustainable mining technology trends',
+  'digitalization in mining operations',
+  'безопасная автоматизация горных работ',
 ];
 
 /**
@@ -32,14 +34,14 @@ export async function searchWeb(query, maxResults = 10) {
 }
 
 /**
- * Собрать данные по производственной безопасности в горнодобыче.
+ * Собрать материалы по инновациям в горнодобыче.
  * Выполняет несколько поисковых запросов и объединяет результаты.
  * @param {object} [opts]
  * @param {string[]} [opts.queries] - свои запросы (по умолчанию DEFAULT_QUERIES)
  * @param {number} [opts.resultsPerQuery=5] - результатов на запрос
  * @returns {Promise<Array<{ title: string, url: string, snippet: string, query: string }>>}
  */
-export async function searchMiningSafety(opts = {}) {
+export async function searchMiningInnovation(opts = {}) {
   const queries = opts.queries || DEFAULT_QUERIES;
   const perQuery = opts.resultsPerQuery ?? 5;
   const seen = new Set();
@@ -64,3 +66,8 @@ export async function searchMiningSafety(opts = {}) {
 
   return all;
 }
+
+/**
+ * Обратная совместимость: старое имя функции.
+ */
+export const searchMiningSafety = searchMiningInnovation;

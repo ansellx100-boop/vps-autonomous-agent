@@ -3,7 +3,7 @@
  */
 
 import OpenAI from 'openai';
-import { searchMiningSafety } from './search.js';
+import { searchMiningInnovation } from './search.js';
 import { insertArticles, getStats } from './db.js';
 import { generateReportPdf } from './report.js';
 import { sendReportToTelegram } from './telegram.js';
@@ -18,11 +18,12 @@ function getClient() {
 }
 
 /**
- * Выполнить сбор данных по производственной безопасности в горнодобыче.
+ * Выполнить сбор материалов по инновациям в горнодобывающей промышленности.
  * Результаты сохраняются в SQLite (data/agent.db).
  */
 async function runCollect() {
-  const items = await searchMiningSafety({ resultsPerQuery: 5 });
+  const resultsPerQuery = parseInt(process.env.COLLECT_RESULTS_PER_QUERY, 10) || 5;
+  const items = await searchMiningInnovation({ resultsPerQuery });
   const rows = items.map((r) => ({
     url: r.url,
     title: r.title,
@@ -32,7 +33,7 @@ async function runCollect() {
   const { inserted, skipped } = insertArticles(rows);
   const stats = getStats();
   return {
-    text: `Собрано ${items.length} результатов. В БД добавлено: ${inserted}, дубликатов пропущено: ${skipped}. Всего в БД: ${stats.total} записей.`,
+    text: `Собрано ${items.length} материалов об инновациях в горнодобыче. В БД добавлено: ${inserted}, дубликатов пропущено: ${skipped}. Всего в БД: ${stats.total} записей.`,
     searchCount: items.length,
     inserted,
     skipped,
@@ -49,10 +50,22 @@ async function runCollect() {
 export async function runTask(task) {
   const payload = task.payload || {};
   const promptLower = (payload.prompt || '').toLowerCase();
-  const isMiningSafetyCollect =
-    (promptLower.includes('искать в интернете') || promptLower.includes('сбор')) &&
-    (promptLower.includes('производственн') || promptLower.includes('горнодобыва') || promptLower.includes('безопасност'));
-  const type = payload.type === 'collect' || isMiningSafetyCollect ? 'collect' : null;
+  const asksToCollect =
+    promptLower.includes('искать в интернете') ||
+    promptLower.includes('сбор') ||
+    promptLower.includes('мониторинг') ||
+    promptLower.includes('новости');
+  const isInnovationTopic =
+    promptLower.includes('инновац') ||
+    promptLower.includes('иновац') ||
+    promptLower.includes('innovation');
+  const isMiningTopic =
+    promptLower.includes('горнодобыв') ||
+    promptLower.includes('горной промышлен') ||
+    promptLower.includes('mining');
+
+  const isMiningInnovationCollect = asksToCollect && isInnovationTopic && isMiningTopic;
+  const type = payload.type === 'collect' || isMiningInnovationCollect ? 'collect' : null;
 
   if (type === 'collect') {
     const result = await runCollect();

@@ -136,14 +136,14 @@ function startWebhookServer() {
 
   setInterval(processOneTask, 5000);
 
-  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 0 * * *';
+  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 * * * *';
   const cronEnabled = process.env.CRON_ENABLED !== '0' && process.env.CRON_ENABLED !== 'false';
   if (cronEnabled) {
     cron.schedule(cronSchedule, () => {
       const taskId = addTask({ type: 'collect' });
-      console.log(`[cron] Ежедневный сбор: добавлена задача ${taskId}`);
+      console.log(`[cron] Плановый сбор материалов: добавлена задача ${taskId}`);
     });
-    console.log(`[cron] Расписание сбора: ${cronSchedule} (UTC)`);
+    console.log(`[cron] Расписание сбора материалов: ${cronSchedule} (UTC)`);
   }
 
   const reportSchedule = process.env.CRON_REPORT_SCHEDULE || '0 9 * * *';
