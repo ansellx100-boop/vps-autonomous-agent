@@ -12,15 +12,15 @@ function round(value, digits = 1) {
   return Math.round(value * factor) / factor;
 }
 
-function mapTypeLabel(typeKey) {
+function mapTypeCategory(typeKey) {
   const key = String(typeKey || '').toLowerCase();
-  if (key.includes('running')) return 'Бег';
-  if (key.includes('cycling')) return 'Велосипед';
-  if (key.includes('walking')) return 'Ходьба';
-  if (key.includes('hiking')) return 'Хайкинг';
-  if (key.includes('strength')) return 'Силовая';
-  if (key.includes('fitness')) return 'Фитнес';
-  return key || 'other';
+  if (key.includes('running')) return { key: 'running', label: 'Бег' };
+  if (key.includes('cycling')) return { key: 'cycling', label: 'Велосипед' };
+  if (key.includes('walking')) return { key: 'walking', label: 'Ходьба' };
+  if (key.includes('hiking')) return { key: 'hiking', label: 'Хайкинг' };
+  if (key.includes('strength')) return { key: 'strength', label: 'Силовая' };
+  if (key.includes('fitness')) return { key: 'fitness', label: 'Фитнес' };
+  return { key: key || 'other', label: key || 'other' };
 }
 
 function isRunLikeType(typeKey) {
@@ -36,6 +36,7 @@ export function normalizeGarminActivity(activity) {
     activity?.activityType?.typeKey ||
     activity?.activityTypeDTO?.typeKey ||
     'other';
+  const mapped = mapTypeCategory(typeKey);
   const startTime =
     activity?.startTimeLocal ||
     activity?.summaryDTO?.startTimeLocal ||
@@ -46,7 +47,8 @@ export function normalizeGarminActivity(activity) {
   return {
     activityId: activity?.activityId || null,
     typeKey,
-    typeLabel: mapTypeLabel(typeKey),
+    typeCategoryKey: mapped.key,
+    typeLabel: mapped.label,
     startTime,
     distanceMeters: toNumber(activity?.distance ?? activity?.summaryDTO?.distance),
     durationSeconds: toNumber(
@@ -105,7 +107,7 @@ export function analyzeGarminActivities(rawActivities, { days = 30, now = new Da
 
   const perTypeMap = new Map();
   for (const a of activities) {
-    const key = a.typeKey;
+    const key = a.typeCategoryKey;
     const prev = perTypeMap.get(key) || {
       typeKey: key,
       typeLabel: a.typeLabel,
