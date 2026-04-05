@@ -29,3 +29,6 @@ Key endpoints (webhook mode):
 - **Cron jobs are on by default.** Set `CRON_ENABLED=0` and `CRON_REPORT_ENABLED=0` in `.env` to disable automatic daily collect/report tasks during development.
 - **Telegram bot is optional.** Only starts if `TELEGRAM_BOT_TOKEN` is set.
 - **Node.js punycode deprecation warning** (`[DEP0040]`) is harmless — comes from a transitive dependency.
+- **OpenAI quota errors (429):** The LLM prompt task path requires a funded OpenAI account. A 429 error means billing quota is exceeded — the task pipeline still works correctly (task queued, dispatched, error logged, removed from queue).
+- **Task deduplication in poll mode:** The 5-second `setInterval` in webhook mode can re-process tasks from `tasks/pending/` multiple times before a slow task (like `collect`) finishes and the file is moved to `done/`. This is by design but can cause duplicate log entries — not harmful.
+- **Recommended dev `.env` overrides:** Use `MODE=webhook`, `CRON_ENABLED=0`, `CRON_REPORT_ENABLED=0` for interactive development. This prevents the poll loop from blocking and disables automatic cron jobs.
