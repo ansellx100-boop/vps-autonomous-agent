@@ -60,6 +60,11 @@ async function runGarminAnalyze(payload = {}) {
     mockFile: payload.mockFile,
     email: payload.garminEmail,
     password: payload.garminPassword,
+    tokenDir: payload.tokenDir,
+    disableTokenCache: payload.disableTokenCache,
+    forceLogin: payload.forceLogin,
+    retryAttempts: payload.retryAttempts,
+    retryBaseMs: payload.retryBaseMs,
   });
 
   const metrics = analyzeGarminActivities(activities, { days });

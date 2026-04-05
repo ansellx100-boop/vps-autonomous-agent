@@ -10,7 +10,8 @@
     "webhook": "MODE=webhook node src/index.js",
     "send-task": "node scripts/send-task.js",
     "garmin-analyze": "node scripts/garmin-analyze.js",
-    "test:garmin": "node tests/garmin-analyzer.test.js"
+    "test:garmin": "node tests/garmin-analyzer.test.js",
+    "test:garmin-auth": "node tests/garmin-auth-retry.test.js"
   },
   "engines": {
     "node": ">=18"

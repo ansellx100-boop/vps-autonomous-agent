@@ -15,6 +15,8 @@ function parseArgs(argv) {
     days: 30,
     maxActivities: 200,
     pageSize: 20,
+    retryAttempts: undefined,
+    retryBaseMs: undefined,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -22,8 +24,13 @@ function parseArgs(argv) {
     if (arg === '--days') parsed.days = Number(argv[i + 1] || 30);
     if (arg === '--max-activities') parsed.maxActivities = Number(argv[i + 1] || 200);
     if (arg === '--page-size') parsed.pageSize = Number(argv[i + 1] || 20);
+    if (arg === '--retry-attempts') parsed.retryAttempts = Number(argv[i + 1] || 4);
+    if (arg === '--retry-base-ms') parsed.retryBaseMs = Number(argv[i + 1] || 30000);
     if (arg === '--mock') parsed.useMock = true;
     if (arg === '--mock-file') parsed.mockFile = argv[i + 1];
+    if (arg === '--token-dir') parsed.tokenDir = argv[i + 1];
+    if (arg === '--disable-token-cache') parsed.disableTokenCache = true;
+    if (arg === '--force-login') parsed.forceLogin = true;
   }
 
   return parsed;
