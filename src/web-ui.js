@@ -45,10 +45,13 @@ function buildPageHtml({ result = null, error = '' } = {}) {
       label { display: flex; flex-direction: column; font-size: 13px; gap: 6px; color: #334155; }
       input, select { border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 10px; font-size: 14px; }
       .row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-      .actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+      .actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
       button:hover { background: #1d4ed8; }
+      button:disabled { background: #94a3b8; cursor: not-allowed; }
       .muted { font-size: 12px; color: #64748b; }
+      .status { font-size: 13px; color: #1d4ed8; display: none; }
+      .status.visible { display: inline-flex; }
       pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0b1220; color: #dbeafe; border-radius: 8px; padding: 12px; max-height: 480px; overflow: auto; }
       .error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 12px; }
     </style>
@@ -59,7 +62,7 @@ function buildPageHtml({ result = null, error = '' } = {}) {
         <h1>Garmin Analytics UI</h1>
         <p class="muted">Запускает анализ тренировок, динамики HR/Power и качества сна через ваш Garmin-аккаунт.</p>
         ${errorText}
-        <form method="POST" action="/garmin-ui/analyze">
+        <form id="garmin-form" method="POST" action="/garmin-ui/analyze">
           <label>Garmin Email
             <input name="garminEmail" type="email" placeholder="you@example.com" />
           </label>
@@ -101,12 +104,26 @@ function buildPageHtml({ result = null, error = '' } = {}) {
             <label for="noAi">Без AI-рекомендаций</label>
           </div>
           <div class="actions">
-            <button type="submit">Запустить анализ</button>
+            <button id="submit-btn" type="submit">Запустить анализ</button>
+            <span id="submit-status" class="status" aria-live="polite">Анализ выполняется, это может занять несколько минут…</span>
           </div>
         </form>
       </section>
       ${output}
     </div>
+    <script>
+      (function () {
+        const form = document.getElementById('garmin-form');
+        const btn = document.getElementById('submit-btn');
+        const status = document.getElementById('submit-status');
+        if (!form || !btn || !status) return;
+        form.addEventListener('submit', () => {
+          btn.disabled = true;
+          btn.textContent = 'Выполняется...';
+          status.classList.add('visible');
+        });
+      })();
+    </script>
   </body>
 </html>`;
 }
