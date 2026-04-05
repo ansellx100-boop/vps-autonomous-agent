@@ -7,12 +7,7 @@ import { searchMiningSafety } from './search.js';
 import { insertArticles, getStats } from './db.js';
 import { generateReportPdf } from './report.js';
 import { sendReportToTelegram } from './telegram.js';
-import { fetchGarminDataset } from './garmin.js';
-import {
-  analyzeGarminActivities,
-  buildGarminReport,
-  formatGarminMetricsForLlm,
-} from './garmin-analyzer.js';
+import { runGarminAnalysis } from './garmin-service.js';
 
 let openai = null;
 
@@ -48,69 +43,7 @@ async function runCollect() {
 }
 
 async function runGarminAnalyze(payload = {}) {
-  const days = Number(payload.days ?? payload.periodDays ?? 30) || 30;
-  const maxActivities = Number(payload.maxActivities ?? 200) || 200;
-  const pageSize = Number(payload.pageSize ?? 20) || 20;
-
-  const dataset = await fetchGarminDataset({
-    days,
-    maxActivities,
-    pageSize,
-    useMock: payload.useMock,
-    mockFile: payload.mockFile,
-    sleepMockFile: payload.sleepMockFile,
-    email: payload.garminEmail,
-    password: payload.garminPassword,
-    tokenDir: payload.tokenDir,
-    disableTokenCache: payload.disableTokenCache,
-    forceLogin: payload.forceLogin,
-    retryAttempts: payload.retryAttempts,
-    retryBaseMs: payload.retryBaseMs,
-    includeSleep: payload.includeSleep,
-    sleepDays: payload.sleepDays,
-    maxSleepDays: payload.maxSleepDays,
-  });
-  const activities = dataset.activities || [];
-  const sleep = dataset.sleep || [];
-
-  const metrics = analyzeGarminActivities(activities, { days, sleep });
-  let llmInsights = '';
-
-  try {
-    const client = getClient();
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    const brief = formatGarminMetricsForLlm(metrics);
-    const completion = await client.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Ты опытный беговой/фитнес-тренер. Дай короткий и практичный разбор нагрузки, рисков и 3-5 рекомендаций на следующую неделю. Отвечай на русском.',
-        },
-        {
-          role: 'user',
-          content: `Данные тренировок:\n${JSON.stringify(brief, null, 2)}`,
-        },
-      ],
-      max_tokens: 600,
-    });
-    llmInsights = completion.choices?.[0]?.message?.content?.trim() || '';
-  } catch (err) {
-    llmInsights = `AI-разбор недоступен: ${err.message}`;
-  }
-
-  const reportText = buildGarminReport(metrics, { llmInsights });
-  return {
-    text: reportText,
-    garmin: {
-      periodDays: days,
-      fetchedActivities: activities.length,
-      fetchedSleepDays: sleep.length,
-      analyzedActivities: metrics.totalActivities,
-      metrics,
-    },
-  };
+  return runGarminAnalysis(payload);
 }
 
 /**

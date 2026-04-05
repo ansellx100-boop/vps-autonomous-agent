@@ -9,6 +9,7 @@ import { addTask, getNextTask, markDone, removeTask, getQueueStats } from './tas
 import { runTask } from './agent.js';
 import { getStats as getDbStats } from './db.js';
 import { startTelegramBot } from './telegram.js';
+import { handleGarminUiRoute } from './web-ui.js';
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -71,6 +72,9 @@ function startWebhookServer() {
 
   const server = http.createServer(async (req, res) => {
     const url = req.url?.split('?')[0];
+    if (await handleGarminUiRoute(req, res, readBody)) {
+      return;
+    }
     if (req.method === 'GET' && (url === '/' || url === '/health')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, service: 'vps-autonomous-agent', mode: 'webhook' }));
