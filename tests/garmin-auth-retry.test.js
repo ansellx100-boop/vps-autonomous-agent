@@ -35,8 +35,8 @@ async function testTokenFallbackToLogin() {
     async login() {
       events.push('login');
     }
-    saveTokenToFile() {
-      events.push('saveTokenToFile');
+    exportTokenToFile() {
+      events.push('exportTokenToFile');
     }
   }
 
@@ -50,7 +50,7 @@ async function testTokenFallbackToLogin() {
   assert.strictEqual(result.authMethod, 'login', 'Should fallback to login when token invalid');
   assert.deepStrictEqual(
     events,
-    ['loadTokenByFile', 'getActivities:0', 'login', 'saveTokenToFile'],
+    ['loadTokenByFile', 'getActivities:0', 'login', 'exportTokenToFile'],
     'Expected token fallback flow'
   );
   cleanup(tokenDir);
@@ -99,6 +99,39 @@ async function testRetryOnRateLimit() {
   assert.strictEqual(activities.length, 1, 'Should return activities after retries');
 }
 
+async function testExportMethodFallback() {
+  const tokenDir = path.join(__dirname, '.tmp-token-export-fallback');
+  cleanup(tokenDir);
+  const events = [];
+  class FakeGarminConnect {
+    constructor() {
+      this.client = {
+        oauth1Token: { token: 'a' },
+        oauth2Token: { access_token: 'b' },
+      };
+    }
+    async login() {
+      events.push('login');
+    }
+    async getActivities() {
+      events.push('getActivities');
+      return [];
+    }
+  }
+
+  await createGarminClient({
+    email: 'user@example.com',
+    password: 'secret',
+    tokenDir,
+    GarminConnectCtor: FakeGarminConnect,
+  });
+
+  assert.strictEqual(fs.existsSync(path.join(tokenDir, 'oauth1_token.json')), true);
+  assert.strictEqual(fs.existsSync(path.join(tokenDir, 'oauth2_token.json')), true);
+  assert.deepStrictEqual(events, ['login'], 'Should login and save tokens via raw fallback');
+  cleanup(tokenDir);
+}
+
 function testRateLimitDetector() {
   assert.strictEqual(
     isGarminRateLimitError(new Error('ERROR: (429), Too Many Requests')),
@@ -114,6 +147,7 @@ function testRateLimitDetector() {
 
 await testTokenFallbackToLogin();
 await testRetryOnRateLimit();
+await testExportMethodFallback();
 testRateLimitDetector();
 
 console.log('garmin-auth-retry tests: OK');

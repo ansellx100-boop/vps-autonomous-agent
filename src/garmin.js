@@ -46,6 +46,24 @@ function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function saveTokensCompat(client, tokenDir) {
+  if (typeof client.exportTokenToFile === 'function') {
+    client.exportTokenToFile(tokenDir);
+    return;
+  }
+  if (typeof client.saveTokenToFile === 'function') {
+    client.saveTokenToFile(tokenDir);
+    return;
+  }
+  const oauth1 = client?.client?.oauth1Token;
+  const oauth2 = client?.client?.oauth2Token;
+  if (!oauth1 || !oauth2) {
+    throw new Error('Не удалось сохранить Garmin токены: отсутствуют oauth1/oauth2.');
+  }
+  fs.writeFileSync(path.join(tokenDir, 'oauth1_token.json'), JSON.stringify(oauth1), 'utf8');
+  fs.writeFileSync(path.join(tokenDir, 'oauth2_token.json'), JSON.stringify(oauth2), 'utf8');
+}
+
 function readBackoffMs(attempt, options = {}) {
   const fromArg = toInt(options.retryBaseMs, null);
   const fromEnv = toInt(process.env.GARMIN_RETRY_BASE_MS, null);
@@ -93,7 +111,7 @@ export async function createGarminClient(options = {}) {
   await client.login();
   if (!disableTokenCache) {
     ensureDir(tokenDir);
-    client.saveTokenToFile(tokenDir);
+    saveTokensCompat(client, tokenDir);
   }
   return { client, tokenDir, authMethod: 'login' };
 }
