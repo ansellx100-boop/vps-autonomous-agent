@@ -8,12 +8,13 @@ import { search, SafeSearchType } from 'duck-duck-scrape';
 const DEFAULT_QUERIES = [
   'инновации в горнодобывающей промышленности',
   'новые технологии в горнодобыче',
-  'automation and AI in mining industry',
-  'autonomous haulage mining innovation',
-  'sustainable mining technology trends',
-  'digitalization in mining operations',
+  'automation and AI in mineral mining industry',
+  'autonomous haulage innovation in metal mining',
+  'sustainable technology trends in mineral extraction',
+  'digitalization in mineral mining operations',
   'безопасная автоматизация горных работ',
 ];
+const CRYPTO_NOISE_RE = /\b(crypto|cryptocurrency|bitcoin|blockchain|kucoin|token)\b/i;
 
 function decodeHtml(input = '') {
   return input
@@ -28,7 +29,13 @@ function decodeHtml(input = '') {
 }
 
 function stripHtml(input = '') {
-  return decodeHtml(input.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')).trim();
+  const decoded = decodeHtml(input);
+  return decoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isLikelyCryptoNoise(row) {
+  const haystack = `${row?.title || ''} ${row?.snippet || ''}`;
+  return CRYPTO_NOISE_RE.test(haystack);
 }
 
 function parseRssItems(xml, maxResults) {
@@ -94,6 +101,7 @@ export async function searchWeb(query, maxResults = 10) {
 
   const pushMany = (rows) => {
     for (const r of rows) {
+      if (isLikelyCryptoNoise(r)) continue;
       const key = r.url || r.title;
       if (!key || seen.has(key)) continue;
       seen.add(key);
