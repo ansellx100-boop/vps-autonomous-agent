@@ -21,20 +21,28 @@ function readBody(req) {
 
 const MODE = process.env.MODE || 'poll';
 const POLL_INTERVAL_MS = (parseInt(process.env.POLL_INTERVAL_SEC, 10) || 60) * 1000;
+let isProcessingTask = false;
 
 async function processOneTask() {
+  if (isProcessingTask) return false;
+  isProcessingTask = true;
   const task = getNextTask();
-  if (!task) return false;
+  if (!task) {
+    isProcessingTask = false;
+    return false;
+  }
   console.log(`[task] ${task.id}`, task.payload);
   try {
     const result = await runTask(task);
     markDone(task.id, result);
     console.log(`[done] ${task.id}`, result.text?.slice(0, 200));
+    isProcessingTask = false;
     return true;
   } catch (err) {
     console.error(`[error] ${task.id}`, err.message);
     removeTask(task.id);
   }
+  isProcessingTask = false;
   return true;
 }
 
@@ -156,7 +164,7 @@ function startWebhookServer() {
     console.log(`[cron] Расписание отчёта (в Telegram): ${reportSchedule} (UTC)`);
   }
 
-  if (process.env.TELEGRAM_BOT_TOKEN) {
+  if (!telegramBot && process.env.TELEGRAM_BOT_TOKEN) {
     startTelegramBot((payload) => addTask(payload));
   }
 }
