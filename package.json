@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "poll": "MODE=poll node src/index.js",
     "webhook": "MODE=webhook node src/index.js",
-    "send-task": "node scripts/send-task.js"
+    "send-task": "node scripts/send-task.js",
+    "garmin-analyze": "node scripts/garmin-analyze.js",
+    "test:garmin": "node tests/garmin-analyzer.test.js"
   },
   "engines": {
     "node": ">=18"
@@ -17,6 +19,7 @@
     "better-sqlite3": "^11.6.0",
     "dotenv": "^16.3.1",
     "duck-duck-scrape": "^2.2.7",
+    "garmin-connect": "^1.6.2",
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.20.0",
