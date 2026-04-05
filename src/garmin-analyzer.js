@@ -60,6 +60,8 @@ export function normalizeGarminActivity(activity) {
     calories: toNumber(activity?.calories ?? activity?.summaryDTO?.calories),
     averageHr: toNumber(activity?.averageHR ?? activity?.summaryDTO?.averageHR),
     maxHr: toNumber(activity?.maxHR ?? activity?.summaryDTO?.maxHR),
+    avgPower: toNumber(activity?.avgPower ?? activity?.summaryDTO?.avgPower),
+    maxPower: toNumber(activity?.maxPower ?? activity?.summaryDTO?.maxPower),
   };
 }
 
@@ -78,6 +80,25 @@ function summarizeBlock(items) {
   };
 }
 
+function average(values, digits = 1) {
+  if (!values.length) return 0;
+  return round(values.reduce((acc, v) => acc + v, 0) / values.length, digits);
+}
+
+function summarizeWeek(items) {
+  const hr = items.map((a) => a.averageHr).filter((v) => v > 0);
+  const power = items.map((a) => a.avgPower).filter((v) => v > 0);
+  const hrPower = items
+    .filter((a) => a.averageHr > 0 && a.avgPower > 0)
+    .map((a) => a.averageHr / a.avgPower);
+  return {
+    sessions: items.length,
+    avgHeartRate: average(hr, 0),
+    avgPower: average(power, 0),
+    hrPowerRatio: hrPower.length ? average(hrPower, 3) : 0,
+  };
+}
+
 function percentChange(prev, next) {
   if (!prev && !next) return 0;
   if (!prev && next) return 100;
@@ -87,7 +108,7 @@ function percentChange(prev, next) {
 /**
  * Основная аналитика по тренировкам.
  */
-export function analyzeGarminActivities(rawActivities, { days = 30, now = new Date() } = {}) {
+export function analyzeGarminActivities(rawActivities, { days = 30, now = new Date(), sleep = [] } = {}) {
   const nowMs = now.getTime();
   const sinceMs = nowMs - days * 24 * 60 * 60 * 1000;
   const activities = (Array.isArray(rawActivities) ? rawActivities : [])
@@ -133,6 +154,7 @@ export function analyzeGarminActivities(rawActivities, { days = 30, now = new Da
   const runLikeDistanceKm = runLike.reduce((acc, a) => acc + a.distanceMeters, 0) / 1000;
   const runLikeDurationMinutes = runLike.reduce((acc, a) => acc + a.durationSeconds, 0) / 60;
   const runLikeHrValues = runLike.map((a) => a.averageHr).filter((v) => v > 0);
+  const runLikePowerValues = runLike.map((a) => a.avgPower).filter((v) => v > 0);
   const running = {
     sessions: runLike.length,
     totalDistanceKm: round(runLikeDistanceKm, 1),
@@ -141,6 +163,7 @@ export function analyzeGarminActivities(rawActivities, { days = 30, now = new Da
     avgHeartRate: runLikeHrValues.length
       ? round(runLikeHrValues.reduce((acc, v) => acc + v, 0) / runLikeHrValues.length, 0)
       : 0,
+    avgPower: average(runLikePowerValues, 0),
   };
 
   const last7StartMs = nowMs - 7 * 24 * 60 * 60 * 1000;
@@ -159,6 +182,60 @@ export function analyzeGarminActivities(rawActivities, { days = 30, now = new Da
     sessionsChangePct: percentChange(previous7.sessions, last7.sessions),
   };
 
+  const hrPowerDynamics = {
+    last7: summarizeWeek(last7Items),
+    previous7: summarizeWeek(prev7Items),
+  };
+  hrPowerDynamics.heartRateChangePct = percentChange(
+    hrPowerDynamics.previous7.avgHeartRate,
+    hrPowerDynamics.last7.avgHeartRate
+  );
+  hrPowerDynamics.powerChangePct = percentChange(
+    hrPowerDynamics.previous7.avgPower,
+    hrPowerDynamics.last7.avgPower
+  );
+  hrPowerDynamics.hrPowerRatioChangePct = percentChange(
+    hrPowerDynamics.previous7.hrPowerRatio,
+    hrPowerDynamics.last7.hrPowerRatio
+  );
+
+  const sleepRows = (Array.isArray(sleep) ? sleep : [])
+    .filter((row) => row?.calendarDate)
+    .map((row) => ({
+      calendarDate: row.calendarDate,
+      sleepHours: toNumber(row.sleepHours),
+      sleepScore: toNumber(row.sleepScore),
+      avgSleepStress: toNumber(row.avgSleepStress),
+      avgOvernightHrv: toNumber(row.avgOvernightHrv),
+      restingHeartRate: toNumber(row.restingHeartRate),
+    }))
+    .sort((a, b) => new Date(a.calendarDate) - new Date(b.calendarDate));
+
+  const sleepLast7 = sleepRows.slice(-7);
+  const sleepPrev7 = sleepRows.slice(-14, -7);
+  const sleepQuality = {
+    daysCaptured: sleepRows.length,
+    avgSleepHours: average(sleepRows.map((s) => s.sleepHours).filter((v) => v > 0), 2),
+    avgSleepScore: average(sleepRows.map((s) => s.sleepScore).filter((v) => v > 0), 0),
+    avgOvernightHrv: average(sleepRows.map((s) => s.avgOvernightHrv).filter((v) => v > 0), 1),
+    avgRestingHeartRate: average(sleepRows.map((s) => s.restingHeartRate).filter((v) => v > 0), 1),
+    trend7d: {
+      last7AvgSleepScore: average(sleepLast7.map((s) => s.sleepScore).filter((v) => v > 0), 0),
+      previous7AvgSleepScore: average(sleepPrev7.map((s) => s.sleepScore).filter((v) => v > 0), 0),
+      last7AvgSleepHours: average(sleepLast7.map((s) => s.sleepHours).filter((v) => v > 0), 2),
+      previous7AvgSleepHours: average(sleepPrev7.map((s) => s.sleepHours).filter((v) => v > 0), 2),
+    },
+    rows: sleepRows,
+  };
+  sleepQuality.trend7d.sleepScoreChangePct = percentChange(
+    sleepQuality.trend7d.previous7AvgSleepScore,
+    sleepQuality.trend7d.last7AvgSleepScore
+  );
+  sleepQuality.trend7d.sleepHoursChangePct = percentChange(
+    sleepQuality.trend7d.previous7AvgSleepHours,
+    sleepQuality.trend7d.last7AvgSleepHours
+  );
+
   return {
     windowDays: days,
     totalActivities,
@@ -169,6 +246,8 @@ export function analyzeGarminActivities(rawActivities, { days = 30, now = new Da
     activityTypeBreakdown,
     running,
     trend7d,
+    hrPowerDynamics,
+    sleepQuality,
     activities,
   };
 }
@@ -185,6 +264,15 @@ function buildHeuristicRecommendations(metrics) {
   }
   if (metrics.running.sessions > 0 && metrics.running.avgPaceMinPerKm > 6.5) {
     advice.push('Темп можно улучшать через 1 темповую или интервальную сессию в неделю.');
+  }
+  if (metrics.hrPowerDynamics.last7.avgPower > 0 && metrics.hrPowerDynamics.hrPowerRatioChangePct > 10) {
+    advice.push('Пульс/мощность ухудшился: снизьте интенсивность и добавьте 1 восстановительный день.');
+  }
+  if (metrics.sleepQuality.daysCaptured >= 7 && metrics.sleepQuality.avgSleepHours < 7) {
+    advice.push('Сон ниже 7 ч в среднем: увеличьте окно сна для лучшего восстановления.');
+  }
+  if (metrics.sleepQuality.daysCaptured >= 7 && metrics.sleepQuality.avgSleepScore < 65) {
+    advice.push('Качество сна низкое: уменьшите поздние интенсивные сессии и следите за режимом.');
   }
   if (advice.length === 0) {
     advice.push('Баланс нагрузки выглядит ровно: продолжайте текущий цикл и отслеживайте самочувствие.');
@@ -204,6 +292,15 @@ export function formatGarminMetricsForLlm(metrics) {
     },
     running: metrics.running,
     trend7d: metrics.trend7d,
+    hrPowerDynamics: metrics.hrPowerDynamics,
+    sleepQuality: {
+      daysCaptured: metrics.sleepQuality.daysCaptured,
+      avgSleepHours: metrics.sleepQuality.avgSleepHours,
+      avgSleepScore: metrics.sleepQuality.avgSleepScore,
+      avgOvernightHrv: metrics.sleepQuality.avgOvernightHrv,
+      avgRestingHeartRate: metrics.sleepQuality.avgRestingHeartRate,
+      trend7d: metrics.sleepQuality.trend7d,
+    },
     byType: metrics.activityTypeBreakdown.map((t) => ({
       type: t.typeKey,
       sessions: t.sessions,
@@ -228,6 +325,10 @@ export function buildGarminReport(metrics, { llmInsights = '' } = {}) {
     : 'Бего-подобных тренировок за период нет.';
 
   const trendLine = `Тренд 7 дней к предыдущим 7: дистанция ${metrics.trend7d.last7.distanceKm} км vs ${metrics.trend7d.previous7.distanceKm} км (${metrics.trend7d.distanceChangePct}%), тренировок ${metrics.trend7d.last7.sessions} vs ${metrics.trend7d.previous7.sessions} (${metrics.trend7d.sessionsChangePct}%).`;
+  const hrPowerLine = `Динамика пульса/мощности 7 vs 7: HR ${metrics.hrPowerDynamics.last7.avgHeartRate} vs ${metrics.hrPowerDynamics.previous7.avgHeartRate} (${metrics.hrPowerDynamics.heartRateChangePct}%), мощность ${metrics.hrPowerDynamics.last7.avgPower} vs ${metrics.hrPowerDynamics.previous7.avgPower} (${metrics.hrPowerDynamics.powerChangePct}%), HR/Power ${metrics.hrPowerDynamics.last7.hrPowerRatio} vs ${metrics.hrPowerDynamics.previous7.hrPowerRatio} (${metrics.hrPowerDynamics.hrPowerRatioChangePct}%).`;
+  const sleepLine = metrics.sleepQuality.daysCaptured > 0
+    ? `Сон: ${metrics.sleepQuality.daysCaptured} дн., средняя длительность ${metrics.sleepQuality.avgSleepHours} ч, sleep score ${metrics.sleepQuality.avgSleepScore}, HRV ${metrics.sleepQuality.avgOvernightHrv}, RHR ${metrics.sleepQuality.avgRestingHeartRate}. Тренд сна 7 vs 7: score ${metrics.sleepQuality.trend7d.last7AvgSleepScore} vs ${metrics.sleepQuality.trend7d.previous7AvgSleepScore} (${metrics.sleepQuality.trend7d.sleepScoreChangePct}%), часы ${metrics.sleepQuality.trend7d.last7AvgSleepHours} vs ${metrics.sleepQuality.trend7d.previous7AvgSleepHours} (${metrics.sleepQuality.trend7d.sleepHoursChangePct}%).`
+    : 'Сон: данных нет (в Garmin не найдено записей сна за выбранный период/лимит).';
 
   const recommendations = buildHeuristicRecommendations(metrics)
     .map((line, idx) => `${idx + 1}. ${line}`)
@@ -249,6 +350,8 @@ export function buildGarminReport(metrics, { llmInsights = '' } = {}) {
     '',
     runLine,
     trendLine,
+    hrPowerLine,
+    sleepLine,
     '',
     'Базовые рекомендации:',
     recommendations,

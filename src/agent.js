@@ -7,7 +7,7 @@ import { searchMiningSafety } from './search.js';
 import { insertArticles, getStats } from './db.js';
 import { generateReportPdf } from './report.js';
 import { sendReportToTelegram } from './telegram.js';
-import { fetchGarminActivities } from './garmin.js';
+import { fetchGarminDataset } from './garmin.js';
 import {
   analyzeGarminActivities,
   buildGarminReport,
@@ -52,12 +52,13 @@ async function runGarminAnalyze(payload = {}) {
   const maxActivities = Number(payload.maxActivities ?? 200) || 200;
   const pageSize = Number(payload.pageSize ?? 20) || 20;
 
-  const activities = await fetchGarminActivities({
+  const dataset = await fetchGarminDataset({
     days,
     maxActivities,
     pageSize,
     useMock: payload.useMock,
     mockFile: payload.mockFile,
+    sleepMockFile: payload.sleepMockFile,
     email: payload.garminEmail,
     password: payload.garminPassword,
     tokenDir: payload.tokenDir,
@@ -65,9 +66,14 @@ async function runGarminAnalyze(payload = {}) {
     forceLogin: payload.forceLogin,
     retryAttempts: payload.retryAttempts,
     retryBaseMs: payload.retryBaseMs,
+    includeSleep: payload.includeSleep,
+    sleepDays: payload.sleepDays,
+    maxSleepDays: payload.maxSleepDays,
   });
+  const activities = dataset.activities || [];
+  const sleep = dataset.sleep || [];
 
-  const metrics = analyzeGarminActivities(activities, { days });
+  const metrics = analyzeGarminActivities(activities, { days, sleep });
   let llmInsights = '';
 
   try {
@@ -100,6 +106,7 @@ async function runGarminAnalyze(payload = {}) {
     garmin: {
       periodDays: days,
       fetchedActivities: activities.length,
+      fetchedSleepDays: sleep.length,
       analyzedActivities: metrics.totalActivities,
       metrics,
     },

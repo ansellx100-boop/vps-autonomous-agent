@@ -37,6 +37,21 @@ function readJsonFile(filePath) {
   return parsed;
 }
 
+function readSleepJsonFile(filePath) {
+  const abs = path.isAbsolute(filePath)
+    ? filePath
+    : path.join(process.cwd(), filePath);
+  if (!fs.existsSync(abs)) {
+    throw new Error(`Sleep mock-файл не найден: ${abs}`);
+  }
+  const content = fs.readFileSync(abs, 'utf8');
+  const parsed = JSON.parse(content);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Sleep mock-файл должен содержать JSON-массив.');
+  }
+  return parsed;
+}
+
 export function isGarminRateLimitError(error) {
   const message = String(error?.message || error || '');
   return error?.statusCode === 429 || /\b429\b/.test(message) || /rate limit/i.test(message);
@@ -120,22 +135,10 @@ async function fetchActivitiesPage(client, start, limit) {
   return client.getActivities(start, limit);
 }
 
-export async function fetchGarminActivitiesOnce(options = {}) {
+async function fetchActivitiesWithClient(client, options = {}) {
   const days = Number(options.days ?? 30) || 30;
   const pageSize = Number(options.pageSize ?? 20) || 20;
   const maxActivities = Number(options.maxActivities ?? 200) || 200;
-  const useMock = toBool(options.useMock ?? process.env.GARMIN_USE_MOCK);
-  const mockFile = options.mockFile || process.env.GARMIN_MOCK_FILE;
-
-  if (useMock || mockFile) {
-    if (!mockFile) {
-      throw new Error('Для mock-режима задайте GARMIN_MOCK_FILE или передайте mockFile.');
-    }
-    return readJsonFile(mockFile);
-  }
-
-  const { client } = await createGarminClient(options);
-
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const activities = [];
   let start = 0;
@@ -157,9 +160,74 @@ export async function fetchGarminActivitiesOnce(options = {}) {
   return activities;
 }
 
-export async function fetchGarminActivities(options = {}) {
+function normalizeSleepSummary(entry) {
+  const dto = entry?.dailySleepDTO || entry || {};
+  const score = Number(dto?.sleepScores?.overall?.value);
+  const hrv = Number(entry?.avgOvernightHrv);
+  const restingHr = Number(entry?.restingHeartRate);
+  const sleepSeconds = Number(dto?.sleepTimeSeconds);
+  return {
+    calendarDate: dto?.calendarDate || null,
+    sleepHours: Number.isFinite(sleepSeconds) ? round(sleepSeconds / 3600, 2) : 0,
+    sleepScore: Number.isFinite(score) ? score : 0,
+    avgSleepStress: Number.isFinite(Number(dto?.avgSleepStress)) ? Number(dto.avgSleepStress) : 0,
+    avgOvernightHrv: Number.isFinite(hrv) ? hrv : 0,
+    restingHeartRate: Number.isFinite(restingHr) ? restingHr : 0,
+  };
+}
+
+function round(value, digits = 2) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+async function fetchSleepWithClient(client, options = {}) {
+  const includeSleep = toBool(options.includeSleep ?? process.env.GARMIN_INCLUDE_SLEEP ?? 1);
+  if (!includeSleep) return [];
+  const days = Number(options.days ?? 30) || 30;
+  const requestedSleepDays = toInt(options.sleepDays ?? process.env.GARMIN_SLEEP_DAYS, Math.min(days, 90));
+  const maxSleepDays = toInt(options.maxSleepDays ?? process.env.GARMIN_MAX_SLEEP_DAYS, 365);
+  const sleepDays = Math.max(0, Math.min(requestedSleepDays, maxSleepDays));
+  if (sleepDays <= 0) return [];
+
+  const now = options.now instanceof Date ? options.now : new Date();
+  const sleep = [];
+  for (let i = 0; i < sleepDays; i += 1) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    try {
+      const data = await client.getSleepData(date);
+      if (data?.dailySleepDTO) sleep.push(normalizeSleepSummary(data));
+    } catch {
+      // Для части дат Garmin может не вернуть sleep-данные; это не ошибка анализа.
+    }
+  }
+  return sleep;
+}
+
+export async function fetchGarminDatasetOnce(options = {}) {
+  const useMock = toBool(options.useMock ?? process.env.GARMIN_USE_MOCK);
+  const mockFile = options.mockFile || process.env.GARMIN_MOCK_FILE;
+  const sleepMockFile = options.sleepMockFile || process.env.GARMIN_SLEEP_MOCK_FILE;
+
+  if (useMock || mockFile) {
+    if (!mockFile) {
+      throw new Error('Для mock-режима задайте GARMIN_MOCK_FILE или передайте mockFile.');
+    }
+    const activities = readJsonFile(mockFile);
+    const sleep = sleepMockFile ? readSleepJsonFile(sleepMockFile) : [];
+    return { activities, sleep };
+  }
+
+  const { client } = await createGarminClient(options);
+  const activities = await fetchActivitiesWithClient(client, options);
+  const sleep = await fetchSleepWithClient(client, options);
+  return { activities, sleep };
+}
+
+export async function fetchGarminDataset(options = {}) {
   const attempts = parseRetryAttempts(options.retryAttempts ?? process.env.GARMIN_RETRY_ATTEMPTS);
-  const fetchOnce = options.fetchOnce || fetchGarminActivitiesOnce;
+  const fetchOnce = options.fetchOnce || fetchGarminDatasetOnce;
   const sleepFn = options.sleepFn || wait;
   for (let attempt = 0; attempt <= attempts; attempt += 1) {
     try {
@@ -171,5 +239,15 @@ export async function fetchGarminActivities(options = {}) {
       await sleepFn(backoffMs);
     }
   }
-  return [];
+  return { activities: [], sleep: [] };
+}
+
+export async function fetchGarminActivitiesOnce(options = {}) {
+  const dataset = await fetchGarminDatasetOnce(options);
+  return dataset.activities;
+}
+
+export async function fetchGarminActivities(options = {}) {
+  const dataset = await fetchGarminDataset(options);
+  return dataset.activities;
 }
