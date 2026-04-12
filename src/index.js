@@ -174,6 +174,32 @@ async function main() {
     startWebhookServer();
     return;
   }
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    startTelegramBot((payload) => addTask(payload), { forcePolling: true, envName: 'конфиг сервиса' });
+  } else {
+    console.log('[telegram] TELEGRAM_BOT_TOKEN не задан — бот в poll-режиме не запущен');
+  }
+
+  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 * * * *';
+  const cronEnabled = process.env.CRON_ENABLED !== '0' && process.env.CRON_ENABLED !== 'false';
+  if (cronEnabled) {
+    cron.schedule(cronSchedule, () => {
+      const taskId = addTask({ type: 'collect' });
+      console.log(`[cron] Плановый сбор материалов: добавлена задача ${taskId}`);
+    });
+    console.log(`[cron] Расписание сбора материалов: ${cronSchedule} (UTC)`);
+  }
+
+  const reportSchedule = process.env.CRON_REPORT_SCHEDULE || '0 9 * * *';
+  const reportCronEnabled = process.env.CRON_REPORT_ENABLED !== '0' && process.env.CRON_REPORT_ENABLED !== 'false';
+  if (reportCronEnabled) {
+    cron.schedule(reportSchedule, () => {
+      const taskId = addTask({ type: 'report', reportDays: 1 });
+      console.log(`[cron] Ежедневный отчёт: добавлена задача ${taskId}`);
+    });
+    console.log(`[cron] Расписание отчёта (в Telegram): ${reportSchedule} (UTC)`);
+  }
+
   console.log('Poll mode: checking tasks every', POLL_INTERVAL_MS / 1000, 's');
   await pollLoop();
 }

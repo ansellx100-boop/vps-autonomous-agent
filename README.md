@@ -107,7 +107,9 @@ docker run -d --env-file .env --restart unless-stopped --name vps-agent vps-agen
 
 ## Как управлять агентом
 
-На Railway/VPS агент в режиме **webhook** управляется только через HTTP. Других панелей нет.
+На VPS есть 2 удобных режима:
+- **webhook** — задачи ставятся через HTTP (`/task`);
+- **poll** — бот Telegram работает через long polling, задачи можно запускать через команды в чате и cron.
 
 ### Отправить задачу
 
@@ -154,7 +156,22 @@ curl -H "X-Webhook-Secret: ваш_секрет" https://ВАШ-ДОМЕН.up.rai
 
 PDF-отчёты по задаче `type: "report"` при настроенных `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` автоматически отправляются в Telegram раз в сутки и по запросу.
 
-### Telegram: отчёты и бот /report
+### Telegram: отчёты и бот /report (без Railway)
+
+Для отказа от Railway используйте VPS + `MODE=poll`:
+
+- `MODE=poll`
+- `TELEGRAM_BOT_TOKEN=<ваш токен>`
+- `TELEGRAM_REPORT_CHAT_IDS=<chat_id>`
+- `TELEGRAM_ALLOWED_CHAT_IDS=<chat_id>`
+- `CRON_ENABLED=1` и `CRON_COLLECT_SCHEDULE=0 * * * *` (круглосуточный сбор, каждый час)
+- `CRON_REPORT_ENABLED=1` и `CRON_REPORT_SCHEDULE=0 9 * * *` (отчёт раз в сутки)
+
+В режиме `poll` переменная `TELEGRAM_WEBHOOK_URL` не нужна (и лучше оставить её пустой).
+
+После запуска сервиса напишите боту `/start`, затем `/report` — отчёт придёт в этот же чат.
+
+### Telegram: отчёты и бот /report (Railway)
 
 В **Variables** на Railway задайте:
 - **TELEGRAM_BOT_TOKEN** — токен от [@BotFather](https://t.me/BotFather).
