@@ -40,7 +40,7 @@ export async function sendReportToTelegram(filePath, chatIds = null, caption = n
 
   if (!fs.existsSync(filePath)) return { sent: 0, errors: [`Файл не найден: ${filePath}`] };
 
-  const text = caption || `Отчёт: производственная безопасность в горнодобыче. ${new Date().toLocaleString('ru-RU')}`;
+  const text = caption || `Отчёт: инновации в горнодобывающей промышленности. ${new Date().toLocaleString('ru-RU')}`;
   let sent = 0;
   const errors = [];
 
@@ -65,22 +65,24 @@ export async function sendReportToTelegram(filePath, chatIds = null, caption = n
  * @param {(payload: object) => string} addTaskFn - функция добавления задачи, возвращает taskId
  * @returns {TelegramBot|null} бот или null; при webhook вызывающий должен вызвать bot.setWebHook(url) и отдавать POST на url в bot.processUpdate(update)
  */
-export function startTelegramBot(addTaskFn) {
+export function startTelegramBot(addTaskFn, opts = {}) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return null;
 
   const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL || '';
-  const useWebhook = webhookUrl.length > 0;
+  const useWebhook = !opts.forcePolling && webhookUrl.length > 0;
   const bot = new TelegramBot(token, { polling: !useWebhook });
 
   const allowedRaw = process.env.TELEGRAM_ALLOWED_CHAT_IDS || process.env.TELEGRAM_REPORT_CHAT_IDS || '';
   const allowedChatIds = new Set(allowedRaw.split(',').map((id) => id.trim()).filter(Boolean));
 
+  const envName = opts.envName || 'переменные окружения';
+
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    const help = `Отчёт по производственной безопасности в горнодобыче.\n\n` +
+    const help = `Отчёт по инновациям в горнодобывающей промышленности.\n\n` +
       `Команды:\n/report или «отчёт» — прислать PDF-отчёт за последний день.\n\n` +
-      `Ваш Chat ID: \`${chatId}\`\nДобавьте его в Railway Variables: TELEGRAM_REPORT_CHAT_IDS и TELEGRAM_ALLOWED_CHAT_IDS.`;
+      `Ваш Chat ID: \`${chatId}\`\nДобавьте его в ${envName}: TELEGRAM_REPORT_CHAT_IDS и TELEGRAM_ALLOWED_CHAT_IDS.`;
     bot.sendMessage(chatId, help).catch(() => {});
   });
 
@@ -88,7 +90,7 @@ export function startTelegramBot(addTaskFn) {
     if (allowedChatIds.size > 0 && !allowedChatIds.has(String(chatId))) {
       bot.sendMessage(
         chatId,
-        `Доступ не настроен. Ваш Chat ID: \`${chatId}\`. Добавьте его в Railway (Variables): TELEGRAM_REPORT_CHAT_IDS и TELEGRAM_ALLOWED_CHAT_IDS, затем перезапустите сервис.`
+        `Доступ не настроен. Ваш Chat ID: \`${chatId}\`. Добавьте его в ${envName}: TELEGRAM_REPORT_CHAT_IDS и TELEGRAM_ALLOWED_CHAT_IDS, затем перезапустите сервис.`
       ).catch(() => {});
       return;
     }

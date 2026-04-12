@@ -21,20 +21,28 @@ function readBody(req) {
 
 const MODE = process.env.MODE || 'poll';
 const POLL_INTERVAL_MS = (parseInt(process.env.POLL_INTERVAL_SEC, 10) || 60) * 1000;
+let isProcessingTask = false;
 
 async function processOneTask() {
+  if (isProcessingTask) return false;
+  isProcessingTask = true;
   const task = getNextTask();
-  if (!task) return false;
+  if (!task) {
+    isProcessingTask = false;
+    return false;
+  }
   console.log(`[task] ${task.id}`, task.payload);
   try {
     const result = await runTask(task);
     markDone(task.id, result);
     console.log(`[done] ${task.id}`, result.text?.slice(0, 200));
+    isProcessingTask = false;
     return true;
   } catch (err) {
     console.error(`[error] ${task.id}`, err.message);
     removeTask(task.id);
   }
+  isProcessingTask = false;
   return true;
 }
 
@@ -136,14 +144,14 @@ function startWebhookServer() {
 
   setInterval(processOneTask, 5000);
 
-  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 0 * * *';
+  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 * * * *';
   const cronEnabled = process.env.CRON_ENABLED !== '0' && process.env.CRON_ENABLED !== 'false';
   if (cronEnabled) {
     cron.schedule(cronSchedule, () => {
       const taskId = addTask({ type: 'collect' });
-      console.log(`[cron] Ежедневный сбор: добавлена задача ${taskId}`);
+      console.log(`[cron] Плановый сбор материалов: добавлена задача ${taskId}`);
     });
-    console.log(`[cron] Расписание сбора: ${cronSchedule} (UTC)`);
+    console.log(`[cron] Расписание сбора материалов: ${cronSchedule} (UTC)`);
   }
 
   const reportSchedule = process.env.CRON_REPORT_SCHEDULE || '0 9 * * *';
@@ -156,7 +164,7 @@ function startWebhookServer() {
     console.log(`[cron] Расписание отчёта (в Telegram): ${reportSchedule} (UTC)`);
   }
 
-  if (process.env.TELEGRAM_BOT_TOKEN) {
+  if (!telegramBot && process.env.TELEGRAM_BOT_TOKEN) {
     startTelegramBot((payload) => addTask(payload));
   }
 }
@@ -166,6 +174,32 @@ async function main() {
     startWebhookServer();
     return;
   }
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    startTelegramBot((payload) => addTask(payload), { forcePolling: true, envName: 'конфиг сервиса' });
+  } else {
+    console.log('[telegram] TELEGRAM_BOT_TOKEN не задан — бот в poll-режиме не запущен');
+  }
+
+  const cronSchedule = process.env.CRON_COLLECT_SCHEDULE || '0 * * * *';
+  const cronEnabled = process.env.CRON_ENABLED !== '0' && process.env.CRON_ENABLED !== 'false';
+  if (cronEnabled) {
+    cron.schedule(cronSchedule, () => {
+      const taskId = addTask({ type: 'collect' });
+      console.log(`[cron] Плановый сбор материалов: добавлена задача ${taskId}`);
+    });
+    console.log(`[cron] Расписание сбора материалов: ${cronSchedule} (UTC)`);
+  }
+
+  const reportSchedule = process.env.CRON_REPORT_SCHEDULE || '0 9 * * *';
+  const reportCronEnabled = process.env.CRON_REPORT_ENABLED !== '0' && process.env.CRON_REPORT_ENABLED !== 'false';
+  if (reportCronEnabled) {
+    cron.schedule(reportSchedule, () => {
+      const taskId = addTask({ type: 'report', reportDays: 1 });
+      console.log(`[cron] Ежедневный отчёт: добавлена задача ${taskId}`);
+    });
+    console.log(`[cron] Расписание отчёта (в Telegram): ${reportSchedule} (UTC)`);
+  }
+
   console.log('Poll mode: checking tasks every', POLL_INTERVAL_MS / 1000, 's');
   await pollLoop();
 }

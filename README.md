@@ -107,7 +107,9 @@ docker run -d --env-file .env --restart unless-stopped --name vps-agent vps-agen
 
 ## Как управлять агентом
 
-На Railway/VPS агент в режиме **webhook** управляется только через HTTP. Других панелей нет.
+На VPS есть 2 удобных режима:
+- **webhook** — задачи ставятся через HTTP (`/task`);
+- **poll** — бот Telegram работает через long polling, задачи можно запускать через команды в чате и cron.
 
 ### Отправить задачу
 
@@ -124,9 +126,9 @@ curl -X POST https://ВАШ-ДОМЕН.up.railway.app/task \
 
 Тело запроса может быть:
 - `{"prompt": "текст запроса"}` — один вопрос к LLM;
-- `{"type": "collect"}` — **сбор из интернета** по теме производственной безопасности в горнодобыче (результаты в SQLite `data/agent.db`); при включённом cron (`CRON_ENABLED=1`) сбор запускается ежедневно по расписанию `CRON_COLLECT_SCHEDULE`;
+- `{"type": "collect"}` — **сбор из интернета** по теме инноваций в горнодобывающей промышленности (результаты в SQLite `data/agent.db`); при включённом cron (`CRON_ENABLED=1`) сбор запускается автоматически по расписанию `CRON_COLLECT_SCHEDULE` (по умолчанию — каждый час, 24/7). Источники: DuckDuckGo + fallback на Google News RSS при rate-limit;
 - `{"type": "report"}` или `{"type": "report", "reportDays": 1}` — **сформировать PDF-отчёт** за последний 1 день и при наличии `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` отправить его в Telegram; по запросу в боте (**/report** или «отчёт») отчёт уходит в тот чат, откуда запросили;
-- текст с «искать в интернете» + «производственная безопасность»/«горнодобыва» тоже запускает сбор;
+- текст с «искать в интернете» + «инновации»/«иновации» + «горнодобыва» тоже запускает сбор;
 - любой другой JSON попадёт в `payload` задачи.
 
 ### Проверить, что агент жив
@@ -152,16 +154,31 @@ curl -H "X-Webhook-Secret: ваш_секрет" https://ВАШ-ДОМЕН.up.rai
 - **Railway:** Deployments → выберите деплой → **View Logs**. Ищите строки `[done] taskId` и текст ответа.
 - **VPS (systemd):** `journalctl -u vps-autonomous-agent -f`.
 
-PDF-отчёты по задаче `type: "report"` при настроенных `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` автоматически отправляются в Telegram.
+PDF-отчёты по задаче `type: "report"` при настроенных `TELEGRAM_BOT_TOKEN` и `TELEGRAM_REPORT_CHAT_IDS` автоматически отправляются в Telegram раз в сутки и по запросу.
 
-### Telegram: отчёты и бот /report
+### Telegram: отчёты и бот /report (без Railway)
+
+Для отказа от Railway используйте VPS + `MODE=poll`:
+
+- `MODE=poll`
+- `TELEGRAM_BOT_TOKEN=<ваш токен>`
+- `TELEGRAM_REPORT_CHAT_IDS=<chat_id>`
+- `TELEGRAM_ALLOWED_CHAT_IDS=<chat_id>`
+- `CRON_ENABLED=1` и `CRON_COLLECT_SCHEDULE=0 * * * *` (круглосуточный сбор, каждый час)
+- `CRON_REPORT_ENABLED=1` и `CRON_REPORT_SCHEDULE=0 9 * * *` (отчёт раз в сутки)
+
+В режиме `poll` переменная `TELEGRAM_WEBHOOK_URL` не нужна (и лучше оставить её пустой).
+
+После запуска сервиса напишите боту `/start`, затем `/report` — отчёт придёт в этот же чат.
+
+### Telegram: отчёты и бот /report (Railway)
 
 В **Variables** на Railway задайте:
 - **TELEGRAM_BOT_TOKEN** — токен от [@BotFather](https://t.me/BotFather).
 - **TELEGRAM_REPORT_CHAT_IDS** — ID чата (или несколько через запятую), куда слать ежедневный отчёт.
 - **TELEGRAM_ALLOWED_CHAT_IDS** — кто может писать боту (если не задано, используются TELEGRAM_REPORT_CHAT_IDS).
 
-После деплоя бот реагирует на **/report** и текст «отчёт»: ставит в очередь задачу отчёта за 1 день и отправляет готовый PDF в тот чат, откуда пришёл запрос (**по запросу**). Ежедневно **раз в день в 9:00** (по умолчанию 09:00 UTC; для 9:00 по Москве задайте `CRON_REPORT_SCHEDULE=0 6 * * *`) формируется отчёт и отправляется в чаты из TELEGRAM_REPORT_CHAT_IDS.
+После деплоя бот реагирует на **/report** и текст «отчёт»: ставит в очередь задачу отчёта за 1 день и отправляет готовый PDF в тот чат, откуда пришёл запрос (**по запросу**). Ежедневно **раз в сутки в 9:00** (по умолчанию 09:00 UTC; для 9:00 по Москве задайте `CRON_REPORT_SCHEDULE=0 6 * * *`) формируется отчёт и отправляется в чаты из TELEGRAM_REPORT_CHAT_IDS.
 
 ### Управление из Cursor
 

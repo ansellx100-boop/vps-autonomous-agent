@@ -1,5 +1,5 @@
 /**
- * Генерация PDF-отчёта по статьям из БД за последние N дней.
+ * Генерация PDF-отчёта по материалам из БД за последние N дней.
  */
 
 import PDFDocument from 'pdfkit';
@@ -35,7 +35,7 @@ export function generateReportPdf(days = 1) {
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
-    doc.fontSize(18).text('Отчёт: производственная безопасность в горнодобыче', { align: 'center' });
+    doc.fontSize(18).text('Отчёт: инновации в горнодобывающей промышленности', { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(10).text(`Период: последние ${days} дн. Сформировано: ${new Date().toLocaleString('ru-RU')}`, { align: 'center' });
     doc.moveDown(1);
